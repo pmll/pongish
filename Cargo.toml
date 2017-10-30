@@ -1,0 +1,11 @@
+[package]
+name = "pongish"
+version = "0.1.0"
+authors = ["Paul Marshall <paulama@ftml.net>"]
+
+[dependencies]
+piston_window = "0.71.0"
+piston-music = "0.23.0"
+find_folder = "0.3.0"
+rand = "0.3.14"
+time = "0.1"

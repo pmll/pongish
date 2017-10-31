@@ -222,11 +222,11 @@ impl Ball {
                 Ball::bat_sound();
                 score.increment();
             }
-            if self.y >= BAT_Y &&
+            if self.y >= BAT_Y && self.x_vel > 0.0 &&
                 self.normal_rebound(bat_x, BAT_Y, bat_x, BAT_Y + BAT_THICKNESS) {
                 Ball::bat_sound();
             }
-            else if self.y >= BAT_Y &&
+            else if self.y >= BAT_Y && self.x_vel < 0.0 &&
                 self.normal_rebound(bat_x + BAT_WIDTH, BAT_Y, bat_x + BAT_WIDTH,
                                     BAT_Y + BAT_THICKNESS) {
                 Ball::bat_sound();

@@ -141,14 +141,18 @@ impl Ball {
         }
     }
 
+    fn reposition_overshoot(&mut self, strike_x: f64, strike_y: f64, overshoot: f64) {
+        self.x = strike_x + self.x_vel * overshoot;
+        self.y = strike_y + self.y_vel * overshoot;
+    }
+
     fn bat_face_rebound(&mut self, bat_x: f64, speedup: f64) -> bool {
         match Ball::strike(self.y, self.x, self.old_y, self.old_x, BAT_Y, bat_x, bat_x + BAT_WIDTH) {
             Some(strike_x) => {
                 // these are not the traditional pong bat rebound rules...
                 let face_pos = if self.x_vel > 0.0 {strike_x - bat_x}
                                else {bat_x + BAT_WIDTH - strike_x};
-                let y_overshoot = self.y - BAT_Y + BALL_RADIUS;
-                let p_overshoot = y_overshoot / self.y_vel;
+                let overshoot = (self.y - BAT_Y + BALL_RADIUS) / self.y_vel;
                 if face_pos < 0.3 * BAT_WIDTH {
                     self.x_vel = self.x_vel.signum() * X_VEL_STEEP * speedup;
                 }
@@ -158,9 +162,8 @@ impl Ball {
                 else {
                     self.x_vel = self.x_vel.signum() * X_VEL_NORMAL * speedup;
                 }
-                self.y = BAT_Y - BALL_RADIUS - y_overshoot;
-                self.x = strike_x + (self.x_vel * p_overshoot);
                 self.y_vel = - Y_VEL * speedup;
+                self.reposition_overshoot(strike_x, BAT_Y - BALL_RADIUS, overshoot);
                 true
             },
             _ => {
@@ -169,22 +172,42 @@ impl Ball {
         }
     }
 
+    fn corner_strike(&self, cx: f64) -> Option<(f64, f64)> {
+        if self.y > BAT_Y - BALL_RADIUS && self.old_y < BAT_Y {
+            let dx = self.x - self.old_x;
+            let dy = self.y - self.old_y;
+            let dr_sq = square(dx) + square(dy);
+            let d = (self.old_x - cx) * (self.y - BAT_Y) - 
+                (self.x - cx) * (self.old_y - BAT_Y);
+            let disc = BALL_RADIUS_SQ * dr_sq - square(d);
+            if disc > 0.0 {
+                let strike_y = BAT_Y + (-d * dx - dy.abs() * disc.sqrt()) / dr_sq;
+                let strike_x = self.x - (self.y - strike_y) * (self.x - self.old_x) /
+                    (self.y - self.old_y);
+                if self.y >= strike_y && self.old_y < strike_y {
+                    // println!("Corner strike {} {}", strike_x, strike_y);
+                    return Some((strike_x, strike_y));
+                }
+            }
+        }
+        return None;
+    }
+
     fn bat_corner_rebound(&mut self, bat_x: f64, speedup: f64) -> bool {
-        // we assume face hit has already been ruled out
-        // this is a "naive" implementation of corner striking
-        if self.y < BAT_Y {
-            // left bat corner
-            if square(self.x - bat_x) + square(self.y - BAT_Y) < BALL_RADIUS_SQ {
-                self.y_vel = - Y_VEL * speedup;
-                self.x_vel = - X_VEL_SHALLOW * speedup;
-                return true;
-            }
-            // right bat corner
-            if square(self.x - bat_x - BAT_WIDTH) + square(self.y - BAT_Y) < BALL_RADIUS_SQ {
-                self.y_vel = - Y_VEL * speedup;
-                self.x_vel =  X_VEL_SHALLOW * speedup;
-                return true;
-            }
+        // left bat corner
+        if let Some((cx, cy)) = self.corner_strike(bat_x) {
+            let overshoot = (self.y - cy) / self.y_vel;
+            self.y_vel = -Y_VEL * speedup;
+            self.x_vel = -X_VEL_SHALLOW * speedup;
+            self.reposition_overshoot(cx, cy, overshoot);
+            return true;
+        }
+        else if let Some((cx, cy)) = self.corner_strike(bat_x + BAT_WIDTH) {
+            let overshoot = (self.y - cy) / self.y_vel;
+            self.y_vel = -Y_VEL * speedup;
+            self.x_vel = X_VEL_SHALLOW * speedup;
+            self.reposition_overshoot(cx, cy, overshoot);
+            return true;
         }
         return false;
     }
@@ -235,6 +258,11 @@ impl Ball {
                 Ball::bat_sound();
                 score.increment();
             }
+            // At present, we pretend that the bat dematerialises from one position
+            // and rematerialises somewhere else in the next frame.
+            // What might be more satsfying is to consider the journey between and
+            // allow a save via a corner hit or a sideways "push" where the ball has
+            // gone too far.
             if self.y > COURT_HEIGHT as f64 + BALL_RADIUS {
                 self.in_play = false;
             }

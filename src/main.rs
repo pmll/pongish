@@ -116,8 +116,7 @@ impl Ball {
     }
 
     fn strike(am: &AxisMotion, orth_am: &AxisMotion, edge: &Edge) -> Option<f64> {
-        let adj_strike_edge = if am.vel > 0.0 {edge.pos - BALL_RADIUS}
-                              else {edge.pos + BALL_RADIUS};
+        let adj_strike_edge = edge.pos - am.vel.signum() * BALL_RADIUS;
         if (am.vel > 0.0 && am.pos >= adj_strike_edge) ||
            (am.vel < 0.0 && am.pos <= adj_strike_edge) {
             let strike_pos = (adj_strike_edge - am.old_pos) * (orth_am.pos - orth_am.old_pos) /
@@ -239,7 +238,7 @@ impl Ball {
                 Ball::table_sound();
             }
             else if self.y.vel > 0.0 && self.y.old_pos < BAT_Y - BALL_RADIUS &&
-                self.bat_face_rebound(bat_x, speedup) {
+              self.bat_face_rebound(bat_x, speedup) {
                 Ball::bat_sound();
                 score.increment();
             }
@@ -426,8 +425,7 @@ fn main() {
                     });
                     if let Some(Button::Keyboard(Key::Space)) = e.release_args() {
                         game_mode = GameMode::Playing;
-                        score.reset();
-                        balls.ball[0].serve(1.0);
+                        balls.serve_new_ball(1.0);
                         accumt = 0.0;
                         start_time = time::get_time();
                     }
@@ -444,12 +442,7 @@ fn main() {
 
                     e.mouse_relative(|x, _| {
                         bat_x += x;
-                        if bat_x < - BAT_WIDTH {
-                            bat_x = - BAT_WIDTH;
-                        }
-                        if bat_x > COURT_WIDTH {
-                            bat_x = COURT_WIDTH;
-                        }
+                        bat_x = bat_x.max(- BAT_WIDTH).min(COURT_WIDTH);
                     });
 
                     if let Some(u) = e.update_args() {
@@ -479,8 +472,8 @@ fn main() {
                     }
                     if let Some(Button::Keyboard(Key::Space)) = e.release_args() {
                         game_mode = GameMode::Playing;
-                        score.points = 0;
-                        balls.ball[0].serve(1.0);
+                        score.reset();
+                        balls.serve_new_ball(1.0);
                         accumt = 0.0;
                         start_time = time::get_time();
                     }
